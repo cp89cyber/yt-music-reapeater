@@ -1,13 +1,18 @@
-# YT Music Duplicate Remover (Chrome Extension)
+# YouTube Music Repeater
 
-Chrome extension to scan a YouTube Music playlist for duplicate songs and remove repeats.
+Clean up your YouTube Music playlists in seconds. This Chrome extension scans for duplicate songs and removes repeats automatically, keeping just one clean copy of each track.
+
+## Features
+- Scans playlists for duplicate songs.
+- Removes repeats automatically based on track `videoId` or title matching.
+- Simple UI for quick cleanup.
 
 ## Install (Developer Mode)
 
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
-4. Select this folder: `/home/culpen0/yt-music repeater`.
+4. Select the project folder.
 
 ## Use
 
@@ -19,4 +24,4 @@ Chrome extension to scan a YouTube Music playlist for duplicate songs and remove
 ## Notes
 
 - Duplicate matching is based on YouTube track `videoId` first, then title + subtitle text fallback.
-- The delete action uses YouTube Music's row menu item text (`Remove from playlist`/similar English labels), so a refresh and retry may help if UI timing changes.
+- The delete action uses YouTube Music's row menu item text, so ensure your UI language is set to English for the best results.
