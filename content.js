@@ -1,5 +1,12 @@
 const WAIT_BETWEEN_ACTIONS_MS = 500;
 const MENU_WAIT_TIMEOUT_MS = 5000;
+const OVERFLOW_LABEL_TOKENS = ["more", "actions", "menu"];
+const UNSAFE_LABEL_TOKENS = ["like", "dislike", "thumb"];
+const PLAYLIST_REMOVE_PHRASES = [
+  "remove from playlist",
+  "remove from this playlist",
+  "delete from playlist"
+];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,17 +32,40 @@ function isPlaylistPage() {
   );
 }
 
-function getMenuButton(row) {
-  const selectors = [
-    "ytmusic-menu-renderer yt-icon-button button",
-    "ytmusic-menu-renderer button",
-    '#menu yt-icon-button button',
-    '#menu button[aria-label]'
-  ];
+function getButtonLabel(button) {
+  if (!button) return "";
 
-  for (const selector of selectors) {
-    const button = row.querySelector(selector);
-    if (button) return button;
+  const direct = normalizeText(
+    button.getAttribute("aria-label") ||
+      button.getAttribute("title") ||
+      button.textContent ||
+      ""
+  );
+  const nested = normalizeText(
+    button.querySelector("[aria-label]")?.getAttribute("aria-label") || ""
+  );
+
+  return [direct, nested].filter(Boolean).join(" ");
+}
+
+function isSafeOverflowMenuButton(button) {
+  if (!button) return false;
+  if (!button.closest("ytmusic-menu-renderer")) return false;
+
+  const label = getButtonLabel(button);
+  if (!label) return false;
+  if (UNSAFE_LABEL_TOKENS.some((token) => label.includes(token))) return false;
+
+  return OVERFLOW_LABEL_TOKENS.some((token) => label.includes(token));
+}
+
+function getSafeMenuButton(row) {
+  const candidates = Array.from(
+    row.querySelectorAll("ytmusic-menu-renderer yt-icon-button button, ytmusic-menu-renderer button")
+  );
+
+  for (const button of candidates) {
+    if (isSafeOverflowMenuButton(button)) return button;
   }
 
   return null;
@@ -122,37 +152,8 @@ function getMenuItemText(item) {
   return [label, nestedLabel, formatted, text].filter(Boolean).join(" ");
 }
 
-function scoreRemoveCandidate(text) {
-  if (!text) return -1;
-
-  if (
-    text.includes("remove from playlist") ||
-    text.includes("remove from this playlist") ||
-    text.includes("delete from playlist")
-  ) {
-    return 100;
-  }
-
-  if (/\b(remove|delete)\b.*\bfrom\b.*\bplaylist\b/.test(text)) {
-    return 90;
-  }
-
-  if (/\b(remove|delete)\b.*\bplaylist\b/.test(text)) {
-    return 80;
-  }
-
-  if (
-    /\b(remove|delete)\b/.test(text) &&
-    /\b(track|song|video|item)\b/.test(text)
-  ) {
-    return 60;
-  }
-
-  if (/^(remove|delete)\b/.test(text)) {
-    return 30;
-  }
-
-  return -1;
+function isPlaylistRemoveText(text) {
+  return PLAYLIST_REMOVE_PHRASES.some((phrase) => text.includes(phrase));
 }
 
 function dismissOpenMenus() {
@@ -163,40 +164,11 @@ function dismissOpenMenus() {
 }
 
 function findRemoveItem(items) {
-  let bestItem = null;
-  let bestScore = -1;
-  const genericRemoveItems = [];
-
   for (const item of items) {
     const text = getMenuItemText(item);
-    const score = scoreRemoveCandidate(text);
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestItem = item;
-    }
-
-    if (/^(remove|delete)\b/.test(text)) {
-      genericRemoveItems.push(item);
-    }
+    if (isPlaylistRemoveText(text)) return item;
   }
-
-  if (bestScore >= 60) {
-    return bestItem;
-  }
-
-  if (genericRemoveItems.length === 1) {
-    return genericRemoveItems[0];
-  }
-
-  return items.find((item) => {
-    const text = getMenuItemText(item);
-    return (
-      text.includes("remove from playlist") ||
-      text.includes("delete from playlist") ||
-      text.includes("remove from this playlist")
-    );
-  });
+  return null;
 }
 
 async function waitForRemoveMenuItem(timeoutMs) {
@@ -244,16 +216,24 @@ async function clickRemoveForRow(track) {
   track.row.scrollIntoView({ block: "center", behavior: "auto" });
   await sleep(120);
 
-  const menuButton = getMenuButton(track.row);
+  const menuButton = getSafeMenuButton(track.row);
   if (!menuButton) {
-    return { removed: false, reason: "menu button not found" };
+    return {
+      removed: false,
+      reason: "safe overflow menu button not found",
+      fatal: true
+    };
   }
 
   menuButton.click();
   const removeItem = await waitForRemoveMenuItem(MENU_WAIT_TIMEOUT_MS);
   if (!removeItem) {
     dismissOpenMenus();
-    return { removed: false, reason: "remove action not found in menu" };
+    return {
+      removed: false,
+      reason: "playlist-specific remove action not found",
+      fatal: true
+    };
   }
 
   removeItem.click();
@@ -279,11 +259,17 @@ async function deleteDuplicates() {
   const targets = [...scanResult.duplicates].sort((a, b) => b.index - a.index);
   const failed = [];
   let removedCount = 0;
+  let aborted = false;
+  let abortReason = null;
 
   for (const track of targets) {
     const result = await clickRemoveForRow(track);
     if (result.removed) {
       removedCount += 1;
+    } else if (result.fatal) {
+      aborted = true;
+      abortReason = `${track.title}: ${result.reason}`;
+      break;
     } else {
       failed.push(`${track.title} (${result.reason})`);
     }
@@ -294,7 +280,9 @@ async function deleteDuplicates() {
     totalTracks: scanResult.totalTracks,
     duplicateCount: scanResult.duplicateCount,
     removedCount,
-    failed
+    failed,
+    aborted,
+    abortReason
   };
 }
 

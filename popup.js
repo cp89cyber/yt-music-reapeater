@@ -88,11 +88,18 @@ deleteBtn.addEventListener("click", async () => {
       throw new Error(response?.error || "Delete failed.");
     }
 
-    const { removedCount, duplicateCount, failed } = response.result;
-    setStatus(
-      `Removed ${removedCount}/${duplicateCount} duplicates.` +
-        (failed.length ? ` Failed: ${failed.slice(0, 3).join(", ")}` : "")
-    );
+    const { removedCount, duplicateCount, failed, aborted, abortReason } = response.result;
+    if (aborted) {
+      setStatus(
+        `Safety stop after removing ${removedCount}/${duplicateCount}. ` +
+          `Aborted: ${abortReason || "uncertain row action target"}`
+      );
+    } else {
+      setStatus(
+        `Removed ${removedCount}/${duplicateCount} duplicates.` +
+          (failed.length ? ` Failed: ${failed.slice(0, 3).join(", ")}` : "")
+      );
+    }
     renderDuplicates([]);
   } catch (error) {
     setStatus(`${error.message} If needed, reload the playlist and try again.`);

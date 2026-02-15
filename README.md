@@ -24,4 +24,5 @@ Clean up your YouTube Music playlists in seconds. This Chrome extension scans fo
 ## Notes
 
 - Duplicate matching is based on YouTube track `videoId` first, then title + subtitle text fallback.
-- The delete action uses YouTube Music's row menu item text, so ensure your UI language is set to English for the best results.
+- The delete action is intentionally strict and English-only: it only clicks a row overflow menu with an action-style label and only accepts playlist-specific remove text.
+- If a safe menu target or playlist remove action cannot be confirmed, the run aborts immediately to avoid accidental clicks on non-menu controls.
