@@ -100,11 +100,59 @@ function getOpenMenuItems() {
     document.querySelectorAll(
       "ytmusic-menu-service-item-renderer, ytmusic-menu-navigation-item-renderer, tp-yt-paper-item, [role='menuitem']"
     )
-  );
+  ).filter((item) => {
+    const style = window.getComputedStyle(item);
+    const hasLayout = item.getClientRects().length > 0;
+    return style.display !== "none" && style.visibility !== "hidden" && hasLayout;
+  });
 }
 
-function getText(node) {
-  return normalizeText(node?.textContent || "");
+function getMenuItemText(item) {
+  if (!item) return "";
+
+  const label = normalizeText(item.getAttribute("aria-label") || "");
+  const nestedLabel = normalizeText(
+    item.querySelector("[aria-label]")?.getAttribute("aria-label") || ""
+  );
+  const formatted = normalizeText(
+    item.querySelector("yt-formatted-string")?.textContent || ""
+  );
+  const text = normalizeText(item.textContent || "");
+
+  return [label, nestedLabel, formatted, text].filter(Boolean).join(" ");
+}
+
+function scoreRemoveCandidate(text) {
+  if (!text) return -1;
+
+  if (
+    text.includes("remove from playlist") ||
+    text.includes("remove from this playlist") ||
+    text.includes("delete from playlist")
+  ) {
+    return 100;
+  }
+
+  if (/\b(remove|delete)\b.*\bfrom\b.*\bplaylist\b/.test(text)) {
+    return 90;
+  }
+
+  if (/\b(remove|delete)\b.*\bplaylist\b/.test(text)) {
+    return 80;
+  }
+
+  if (
+    /\b(remove|delete)\b/.test(text) &&
+    /\b(track|song|video|item)\b/.test(text)
+  ) {
+    return 60;
+  }
+
+  if (/^(remove|delete)\b/.test(text)) {
+    return 30;
+  }
+
+  return -1;
 }
 
 function dismissOpenMenus() {
@@ -115,8 +163,34 @@ function dismissOpenMenus() {
 }
 
 function findRemoveItem(items) {
+  let bestItem = null;
+  let bestScore = -1;
+  const genericRemoveItems = [];
+
+  for (const item of items) {
+    const text = getMenuItemText(item);
+    const score = scoreRemoveCandidate(text);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestItem = item;
+    }
+
+    if (/^(remove|delete)\b/.test(text)) {
+      genericRemoveItems.push(item);
+    }
+  }
+
+  if (bestScore >= 60) {
+    return bestItem;
+  }
+
+  if (genericRemoveItems.length === 1) {
+    return genericRemoveItems[0];
+  }
+
   return items.find((item) => {
-    const text = getText(item);
+    const text = getMenuItemText(item);
     return (
       text.includes("remove from playlist") ||
       text.includes("delete from playlist") ||
