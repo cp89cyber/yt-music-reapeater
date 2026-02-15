@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "YT Music Duplicate Remover",
+  "version": "1.0.0",
+  "description": "Scan a YouTube Music playlist for duplicate songs and remove repeats.",
+  "permissions": ["tabs"],
+  "host_permissions": ["https://music.youtube.com/*"],
+  "action": {
+    "default_title": "YT Music Duplicate Remover",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://music.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

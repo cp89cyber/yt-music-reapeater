@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YT Music Duplicate Remover</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Duplicate Remover</h1>
+      <p class="subtitle">YouTube Music playlist cleanup</p>
+      <div class="actions">
+        <button id="scan-btn" type="button">Scan Playlist</button>
+        <button id="delete-btn" type="button" class="danger">Delete Repeats</button>
+      </div>
+      <section id="status" class="status">Open a playlist on music.youtube.com, then scan.</section>
+      <section>
+        <h2>Duplicates</h2>
+        <ul id="duplicates-list"></ul>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
